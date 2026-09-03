@@ -1,0 +1,37 @@
+# === colcon 构建产物 ===
+build/
+install/
+log/
+
+# === Python ===
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist/
+.pytest_cache/
+
+# === ROS / Gazebo 运行时 ===
+*.bag
+*.db3
+*.mcap
+*.log
+*.pgm.bak
+
+# === 建图产物（样例保留、个人建图忽略，按需二选一）===
+# 若想把自己建的图也提交，把下面两行删掉：
+src/go2_nav/maps/*.pgm
+src/go2_nav/maps/*.yaml
+!src/go2_nav/maps/.gitkeep
+
+# === IDE / 编辑器 ===
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# === 系统 ===
+Thumbs.db

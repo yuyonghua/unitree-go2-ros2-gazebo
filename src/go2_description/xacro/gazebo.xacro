@@ -1,0 +1,42 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:macro name="go2_gazebo" params="robot_name">
+    <gazebo>
+      <plugin name="gz_ros2_control::GazeboSimROS2ControlPlugin" filename="libgz_ros2_control-system.so">
+        <ros><namespace>/${robot_name}</namespace></ros>
+        <parameters>$(find go2_description)/config/ros_control.yaml</parameters>
+      </plugin>
+    </gazebo>
+    <!-- 12 腿关节 ros2_control：照抄原文件 22-97 行，共 12 组 joint，每组 position 指令 + position/velocity/effort 状态 -->
+    <ros2_control name="${robot_name}_GazeboSystem" type="system">
+      <hardware><plugin>gz_ros2_control/GazeboSimSystem</plugin></hardware>
+      <!-- lf/rf/lh/rh × hip/upper_leg/lower_leg，写法与原文件逐行一致，此处省略 70 行 -->
+    </ros2_control>
+    <gazebo reference="imu_link">
+      <gravity>false</gravity>
+      <sensor name="imu_sensor" type="imu">
+        <always_on>true</always_on><update_rate>100</update_rate>
+        <visualize>false</visualize>
+        <topic>/${robot_name}/imu_plugin/out</topic>
+        <plugin filename="libgz-sim-imu-system.so" name="gz::sim::systems::Imu"/>
+        <pose>0 0 0 0 0 0</pose><gz_frame_id>imu_link</gz_frame_id>
+      </sensor>
+    </gazebo>
+    <gazebo reference="lidar">
+      <sensor name="L1_lidar" type="gpu_lidar">
+        <pose>0 0 0 0 0 0</pose><visualize>false</visualize><update_rate>10</update_rate>
+        <lidar>
+          <scan><horizontal><samples>640</samples><resolution>1</resolution>
+            <min_angle>1.396263</min_angle><max_angle>4.8869</max_angle></horizontal>
+            <vertical><samples>16</samples><resolution>1</resolution>
+            <min_angle>-0.261799</min_angle><max_angle>0.261799</max_angle></vertical></scan>
+          <range><min>0.3</min><max>131</max><resolution>0.001</resolution></range>
+        </lidar>
+        <topic>/${robot_name}/scan</topic><gz_frame_id>lidar</gz_frame_id>
+      </sensor>
+    </gazebo>
+    <!-- trunk + 12 腿 link 的 mu/kp/kd 照抄原 170-286 行：trunk mu 0.2，foot mu 0.6，其余 0.2 -->
+    <gazebo reference="trunk"><mu1>0.2</mu1><mu2>0.2</mu2><kp>10000.0</kp><kd>1.0</kd></gazebo>
+    <!-- lf/rf/lh/rh 各 4 组 friction/self_collide 段，此处省略，逐行照抄 -->
+  </xacro:macro>
+</robot>

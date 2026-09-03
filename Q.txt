@@ -1,0 +1,5 @@
+P1部分:
+1. 为什么不适用ros2 pkg create创建ros2_description,而是手动创建xacro/meshes/config三个目库,剩下的CMakeLists.txt和package.xml怎么办?
+2. 你只让我复制了5个meshes文件,源代码有10个,剩下5个不用复制的理由是什么
+3. dae 和 meshes两个目录分别是碰撞模型和视觉模型,内容是不是一致,是不是可以复用,所以你没有让我创建dae目录
+4. 我看你没让创建launch目录,是这部分用不上吗?其实我想预览这个模型,是description内创建launch文件预览好还是在bringup目录下创建launch文件预览好,我偏向于description内
