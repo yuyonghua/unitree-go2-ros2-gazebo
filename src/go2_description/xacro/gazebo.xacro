@@ -7,10 +7,58 @@
         <parameters>$(find go2_description)/config/ros_control.yaml</parameters>
       </plugin>
     </gazebo>
-    <!-- 12 腿关节 ros2_control：照抄原文件 22-97 行，共 12 组 joint，每组 position 指令 + position/velocity/effort 状态 -->
+    <!-- 12 腿关节 ros2_control：Gazebo 靠它认出 12 个关节，
+         缺一个 spawner 就起不来，所以必须全写，一行不能少 -->
     <ros2_control name="${robot_name}_GazeboSystem" type="system">
       <hardware><plugin>gz_ros2_control/GazeboSimSystem</plugin></hardware>
-      <!-- lf/rf/lh/rh × hip/upper_leg/lower_leg，写法与原文件逐行一致，此处省略 70 行 -->
+      <joint name="lf_hip_joint">
+        <command_interface name="position"/>
+        <state_interface name="position"/><state_interface name="velocity"/><state_interface name="effort"/>
+      </joint>
+      <joint name="lf_upper_leg_joint">
+        <command_interface name="position"/>
+        <state_interface name="position"/><state_interface name="velocity"/><state_interface name="effort"/>
+      </joint>
+      <joint name="lf_lower_leg_joint">
+        <command_interface name="position"/>
+        <state_interface name="position"/><state_interface name="velocity"/><state_interface name="effort"/>
+      </joint>
+      <joint name="rf_hip_joint">
+        <command_interface name="position"/>
+        <state_interface name="position"/><state_interface name="velocity"/><state_interface name="effort"/>
+      </joint>
+      <joint name="rf_upper_leg_joint">
+        <command_interface name="position"/>
+        <state_interface name="position"/><state_interface name="velocity"/><state_interface name="effort"/>
+      </joint>
+      <joint name="rf_lower_leg_joint">
+        <command_interface name="position"/>
+        <state_interface name="position"/><state_interface name="velocity"/><state_interface name="effort"/>
+      </joint>
+      <joint name="lh_hip_joint">
+        <command_interface name="position"/>
+        <state_interface name="position"/><state_interface name="velocity"/><state_interface name="effort"/>
+      </joint>
+      <joint name="lh_upper_leg_joint">
+        <command_interface name="position"/>
+        <state_interface name="position"/><state_interface name="velocity"/><state_interface name="effort"/>
+      </joint>
+      <joint name="lh_lower_leg_joint">
+        <command_interface name="position"/>
+        <state_interface name="position"/><state_interface name="velocity"/><state_interface name="effort"/>
+      </joint>
+      <joint name="rh_hip_joint">
+        <command_interface name="position"/>
+        <state_interface name="position"/><state_interface name="velocity"/><state_interface name="effort"/>
+      </joint>
+      <joint name="rh_upper_leg_joint">
+        <command_interface name="position"/>
+        <state_interface name="position"/><state_interface name="velocity"/><state_interface name="effort"/>
+      </joint>
+      <joint name="rh_lower_leg_joint">
+        <command_interface name="position"/>
+        <state_interface name="position"/><state_interface name="velocity"/><state_interface name="effort"/>
+      </joint>
     </ros2_control>
     <gazebo reference="imu_link">
       <gravity>false</gravity>
@@ -35,8 +83,51 @@
         <topic>/${robot_name}/scan</topic><gz_frame_id>lidar</gz_frame_id>
       </sensor>
     </gazebo>
-    <!-- trunk + 12 腿 link 的 mu/kp/kd 照抄原 170-286 行：trunk mu 0.2，foot mu 0.6，其余 0.2 -->
+    <!-- 各腿 link 的摩擦/碰撞参数：脚 mu 0.6 抓地，其余 0.2；站不站得住看这里 -->
     <gazebo reference="trunk"><mu1>0.2</mu1><mu2>0.2</mu2><kp>10000.0</kp><kd>1.0</kd></gazebo>
-    <!-- lf/rf/lh/rh 各 4 组 friction/self_collide 段，此处省略，逐行照抄 -->
+    <!-- FL leg -->
+    <gazebo reference="lf_hip_link"><mu1>0.2</mu1><mu2>0.2</mu2></gazebo>
+    <gazebo reference="lf_upper_leg_link">
+      <mu1>0.2</mu1><mu2>0.2</mu2><self_collide>1</self_collide><kp>10000.0</kp><kd>1.0</kd>
+    </gazebo>
+    <gazebo reference="lf_lower_leg_link">
+      <mu1>0.2</mu1><mu2>0.2</mu2><self_collide>1</self_collide>
+    </gazebo>
+    <gazebo reference="lf_foot_link">
+      <mu1>0.6</mu1><mu2>0.6</mu2><self_collide>1</self_collide><kp>10000.0</kp><kd>1.0</kd>
+    </gazebo>
+    <!-- FR leg -->
+    <gazebo reference="rf_hip"><mu1>0.2</mu1><mu2>0.2</mu2></gazebo>
+    <gazebo reference="rf_upper_leg_link">
+      <mu1>0.2</mu1><mu2>0.2</mu2><self_collide>1</self_collide><kp>10000.0</kp><kd>1.0</kd>
+    </gazebo>
+    <gazebo reference="rf_lower_leg_link">
+      <mu1>0.2</mu1><mu2>0.2</mu2><self_collide>1</self_collide>
+    </gazebo>
+    <gazebo reference="rf_foot_link">
+      <mu1>0.6</mu1><mu2>0.6</mu2><self_collide>1</self_collide><kp>10000.0</kp><kd>1.0</kd>
+    </gazebo>
+    <!-- RL leg -->
+    <gazebo reference="lh_hip"><mu1>0.2</mu1><mu2>0.2</mu2></gazebo>
+    <gazebo reference="lh_upper_leg_link">
+      <mu1>0.2</mu1><mu2>0.2</mu2><self_collide>1</self_collide><kp>10000.0</kp><kd>1.0</kd>
+    </gazebo>
+    <gazebo reference="lh_lower_leg_link">
+      <mu1>0.2</mu1><mu2>0.2</mu2><self_collide>1</self_collide>
+    </gazebo>
+    <gazebo reference="lh_foot_link">
+      <mu1>0.6</mu1><mu2>0.6</mu2><self_collide>1</self_collide><kp>10000.0</kp><kd>1.0</kd>
+    </gazebo>
+    <!-- RR leg -->
+    <gazebo reference="rh_hip"><mu1>0.2</mu1><mu2>0.2</mu2></gazebo>
+    <gazebo reference="rh_upper_leg_link">
+      <mu1>0.2</mu1><mu2>0.2</mu2><self_collide>1</self_collide><kp>10000.0</kp><kd>1.0</kd>
+    </gazebo>
+    <gazebo reference="rh_lower_leg_link">
+      <mu1>0.2</mu1><mu2>0.2</mu2><self_collide>1</self_collide>
+    </gazebo>
+    <gazebo reference="rh_foot_link">
+      <mu1>0.6</mu1><mu2>0.6</mu2><self_collide>1</self_collide><kp>10000.0</kp><kd>1.0</kd>
+    </gazebo>
   </xacro:macro>
 </robot>

@@ -1,0 +1,5 @@
+robots:
+  - name: robot1
+    x_pose: '0.0'
+    y_pose: '0.0'
+    z_pose: '0.8'
