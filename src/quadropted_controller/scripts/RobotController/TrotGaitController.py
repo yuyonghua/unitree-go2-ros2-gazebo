@@ -30,7 +30,7 @@ class TrotGaitController(GaitController):
 
         super().__init__(stance_time, swing_time, time_step, contact_phases, default_stance)
         
-        self.velocity_pub = self.node.create_publisher(Twist, "controller_velocity", 10)  # Используем переданный node
+        self.velocity_pub = self.node.create_publisher(Twist, "controller_velocity", 10)  # 使用传入的 node
 
         self.foot_contact_pub = self.node.create_publisher(RobotFootContact, "foot_contact", 10)
 
@@ -121,7 +121,7 @@ class TrotGaitController(GaitController):
 
                 new_foot_locations[:, leg_index] = new_location
 
-            # Компенсация крена и тангажа
+            # 横滚与俯仰补偿
             if self.use_imu:
                 compensation = self.pid_controller.run(state.imu_roll, state.imu_pitch)
                 roll_compensation = -compensation[0]

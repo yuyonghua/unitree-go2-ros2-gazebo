@@ -94,7 +94,7 @@ go2_l1_ws/src/
     launch/launch.py  launch/l1.launch.py
     config/robots.yaml  config/gz_bridge.yaml  config/ekf.yaml
     worlds/warehouse.sdf    # 从原包复制（或只拷这一个）
-    rviz/go2_l1.rviz
+    rviz/go2_l1.rviz  rviz/go2_l1_external.rviz   # L1 版 / 外置雷达版（从原包复制后改名，删掉相机 display）
   go2_slam/                 # 手写包：建图
     package.xml  CMakeLists.txt
     launch/slam.launch.py
@@ -629,7 +629,9 @@ robots:
 import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription, LaunchContext
-from launch.actions import DeclareLaunchArgument, OpaqueFunction, RegisterEventHandler
+from launch.actions import DeclareLaunchArgument, OpaqueFunction, RegisterEventHandler, TimerAction
+from launch.conditions import IfCondition
+from launch.event_handlers import OnProcessExit
 from launch.event_handlers import OnProcessExit
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
@@ -680,25 +682,34 @@ def _robot_nodes(context: LaunchContext, *args, **kwargs):
                         arguments=['--ros-args', '-p',
                                    f'config_file:={os.path.join(pkg, "config", "gz_bridge.yaml")}'])
 
-    # 两个 spawner 必须串行 + 超时加到 60 秒（血泪教训 2026-09-04：Gazebo 内
-    # controller_manager 启动慢，默认 10 秒超时会导致第一次 load 客户端超时、
-    # 服务端随后成功，重试撞上 already loaded 然后 FATAL，腿控制器永远 inactive、狗必翻）。
+    # 两个 spawner 必须延迟串行（血泪教训 2026-09-04/05/06）：
+    # 上游 bug（ros-humble-controller-manager 2.54，spawner.py）：load_controller
+    # 调用没传 service_call_timeout，永远用硬编码 10 秒。所以 --service-call-timeout 60
+    # 只保得住 configure/activate，保不住 load；本机实测 controller_manager 约在
+    # Gazebo 启动后 17 秒才响应 load，第一次调用必 10 秒超时、服务端随后成功、
+    # 重试撞 already loaded FATAL（broadcaster 死是腿 TF 全缺，group 死是狗必翻）。
+    # 解法：TimerAction 延迟 20 秒再起 broadcaster（一次即中），broadcaster 退出后
+    # 再起 group controller。机器慢还 FATAL 就把 20.0 调大。
     cm = f'/{ns}/controller_manager'
     jsb = Node(package='controller_manager', executable='spawner',
                namespace=ns, output='screen',
                arguments=['joint_state_broadcaster',
                           '--controller-manager', cm,
-                          '--controller-manager-timeout', '60'],
+                          '--controller-manager-timeout', '60',
+                          '--service-call-timeout', '60'],
                remappings=remappings)
     jgc = Node(package='controller_manager', executable='spawner',
                namespace=ns, output='screen',
                arguments=['joint_group_controller',
                           '--controller-manager', cm,
-                          '--controller-manager-timeout', '60'],
+                          '--controller-manager-timeout', '60',
+                          '--service-call-timeout', '60'],
                remappings=remappings)
-    # broadcaster 正常结束（exit 0）后才起 group controller
+    # broadcaster 退出后才起 group controller
     jgc_after_jsb = RegisterEventHandler(OnProcessExit(
         target_action=jsb, on_exit=[jgc]))
+    # 包一层 TimerAction：等 Gazebo 内 controller_manager 就绪（约 20 秒）再办 load
+    jsb_delayed = TimerAction(period=20.0, actions=[jsb])
 
     controller = Node(package='quadropted_controller', executable='robot_controller_gazebo.py',
                       name='quadruped_controller', namespace=ns,
@@ -720,8 +731,19 @@ def _robot_nodes(context: LaunchContext, *args, **kwargs):
                            {'use_sim_time': use_sim_time}],
                remappings=remappings)
 
-    return [clock_bridge, rsp, spawn, bridge, jsb, jgc_after_jsb,
-            controller, cmd_vel_pub, odom, ekf]
+    # RViz：默认不开，launch.py 加 rviz:=true 才起；配置文件按 use_external_lidar 自动二选一
+    rviz_cfg = os.path.join(
+        pkg, 'rviz',
+        'go2_l1_external.rviz' if use_ext == 'true' else 'go2_l1.rviz')
+    rviz = Node(package='rviz2', executable='rviz2', name='rviz2',
+                namespace=ns, output='screen',
+                arguments=['-d', rviz_cfg],
+                parameters=[{'use_sim_time': use_sim_time}],
+                remappings=remappings,
+                condition=IfCondition(LaunchConfiguration('rviz')))
+
+    return [clock_bridge, rsp, spawn, bridge, jsb_delayed, jgc_after_jsb,
+            controller, cmd_vel_pub, odom, ekf, rviz]
 
 
 def generate_launch_description():
@@ -729,6 +751,8 @@ def generate_launch_description():
         DeclareLaunchArgument('use_sim_time', default_value='true'),
         DeclareLaunchArgument('use_external_lidar', default_value='false',
                               description='是否加载外置 360° 激光雷达（默认 false，只用内置 L1）'),
+        DeclareLaunchArgument('rviz', default_value='false',
+                              description='是否启动 RViz（默认 false；为 true 时按 use_external_lidar 自动选配置文件）'),
         OpaqueFunction(function=_robot_nodes),
     ])
 ```
@@ -760,9 +784,13 @@ def generate_launch_description():
     ld = LaunchDescription()
     use_sim_time = LaunchConfiguration('use_sim_time', default='true')
     use_ext = LaunchConfiguration('use_external_lidar', default='false')
+    use_rviz = LaunchConfiguration('rviz', default='false')
     ld.add_action(DeclareLaunchArgument('use_sim_time', default_value='true'))
     ld.add_action(DeclareLaunchArgument('use_external_lidar', default_value='false',
                                         description='是否加载外置 360° 激光雷达，透传给 l1.launch.py'))
+    ld.add_action(DeclareLaunchArgument(
+        'rviz', default_value='false',
+        description='是否启动 RViz，透传给 l1.launch.py（配置文件按 use_external_lidar 自动选）'))
     ld.add_action(SetParameter(name='use_sim_time', value=use_sim_time))
     ld.add_action(DeclareLaunchArgument('world', default_value='warehouse.sdf'))
     ld.add_action(OpaqueFunction(function=_gz))
@@ -773,11 +801,12 @@ def generate_launch_description():
             PythonLaunchDescriptionSource(os.path.join(
                 get_package_share_directory('go2_gazebo_bringup'), 'launch', 'l1.launch.py')),
             launch_arguments={'use_sim_time': use_sim_time,
-                              'use_external_lidar': use_ext}.items())])))
+                              'use_external_lidar': use_ext,
+                              'rviz': use_rviz}.items())])))
     return ld
 ```
 
-用法：`ros2 launch go2_gazebo_bringup launch.py`（默认 L1）；`ros2 launch go2_gazebo_bringup launch.py use_external_lidar:=true`（加挂外置雷达）。
+用法：`ros2 launch go2_gazebo_bringup launch.py`（默认 L1）；`ros2 launch go2_gazebo_bringup launch.py use_external_lidar:=true`（加挂外置雷达）；`ros2 launch go2_gazebo_bringup launch.py rviz:=true`（顺手开 RViz，默认不开，配置文件按 use_external_lidar 自动选 `rviz/go2_l1.rviz` 或 `rviz/go2_l1_external.rviz`）。
 
 ### 5.4 验收
 
@@ -789,6 +818,15 @@ ros2 topic echo /robot1/scan --once    # angle_min≈1.39 angle_max≈4.88
 gz topic -l | grep robot1/scan
 ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -r /cmd_vel:=/robot1/cmd_vel
 ros2 service call /robot1/robot_behavior_command quadropted_msgs/srv/RobotBehaviorCommand "{command: 'walk'}"
+```
+
+排错（spawner 死了不用重启仿真）：先 `ros2 service call /robot1/controller_manager/list_controllers controller_manager_msgs/srv/ListControllers`
+看状态，哪个是 `unconfigured` 就手动扶它一把（以 broadcaster 为例，group 同理换名）：
+
+```bash
+ros2 service call /robot1/controller_manager/configure_controller controller_manager_msgs/srv/ConfigureController "{name: 'joint_state_broadcaster'}"
+ros2 service call /robot1/controller_manager/switch_controller controller_manager_msgs/srv/SwitchController "{activate_controllers: ['joint_state_broadcaster'], deactivate_controllers: [], strictness: 1, activate_asap: true, timeout: {sec: 5, nanosec: 0}}"
+# 再查 list_controllers，两个都 active 即正常；/robot1/joint_states 应 ~90Hz
 ```
 
 ---

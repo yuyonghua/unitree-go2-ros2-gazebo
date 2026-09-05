@@ -22,7 +22,8 @@ source env.sh   # order matters: /opt/ros/humble + install/setup.bash FIRST, the
   (includes `gazebo.xacro` + `lidar_external.xacro`); preview via `launch/display.launch.py`.
 - `go2_gazebo_bringup` — everything simulation. Entry `launch/launch.py` (world → Gazebo,
   `sleep 6`, then `l1.launch.py`: rsp → spawn → bridge → spawners → quadropted nodes → EKF).
-- `quadropted_controller` + `quadropted_msgs` — reuse as-is, never rewrite.
+  RViz via `rviz:=true` (default off; config auto-selected: `rviz/go2_l1.rviz` vs `go2_l1_external.rviz`).
+- `quadropted_controller` + `quadropted_msgs` — reuse as-is, never rewrite (comments already translated to Chinese).
 - `go2_slam` / `go2_nav` — empty, future work (slam_toolbox, not cartographer).
 
 ## Build / verify
@@ -45,8 +46,15 @@ ros2 topic hz /robot1/scan   # ~10Hz, angle_min≈1.39 angle_max≈4.88 (front ~
   `mappings`; `use_external_lidar` bridge topics must be appended conditionally (Gazebo has no velodyne topics when off).
 - `gazebo.xacro` `<ros2_control>` must list all 12 leg joints fully — an empty/abbreviated block makes both spawners `exit 1`.
 - Spawners in `l1.launch.py` must be serial (`joint_state_broadcaster` first, `joint_group_controller`
-  on its exit) with `--controller-manager-timeout 60`; parallel + default 10s timeout causes
-  `already loaded` FATAL → `joint_group_controller` stuck loaded-but-inactive → dog flips.
+  on its exit) with BOTH `--controller-manager-timeout 60` AND `--service-call-timeout 60`
+  (two independent 10s defaults); any timeout causes `already loaded` FATAL or
+  loaded-but-unconfigured → missing leg TFs (broadcaster) or dog flips (group controller).
+- Upstream Humble bug (verified in `/opt/ros/humble/.../controller_manager/spawner.py`):
+  the `load_controller` call never passes `service_call_timeout`, so load always uses a
+  hardcoded 10s. Hence spawners are wrapped in `TimerAction(20.0)` — Gazebo's controller_manager
+  only answers load ~17s after gz start. Increase the delay on slower machines. If a spawner
+  still dies, recover without restarting via `configure_controller` + `switch_controller`
+  service calls (see guide §5.4).
 - TF remaps `(/tf→tf, /tf_static→tf_static, /scan→scan, /odom→odometry/filtered)` required on rsp/spawners/controller/odom/ekf;
   a missing one = split TF tree or SLAM with no scan. Base frame is `base_link` (EKF/SLAM/Nav2 agree); never use `velodyne` as RViz Fixed Frame.
 - L1 ranges: Gazebo `max 131m` penetrates walls — clamp to 10m in SLAM/Nav2 params. `inflation_radius ≥ 0.5` (rear blind).
@@ -58,4 +66,4 @@ ros2 topic hz /robot1/scan   # ~10Hz, angle_min≈1.39 angle_max≈4.88 (front ~
 
 - Work piece-by-piece; don't start slam/nav2 unprompted. Don't run long sims unprompted; if killing sim,
   `pkill` patterns can match your own shell — use the bracket trick (`pkill -f '[g]z sim'`) or exact PIDs.
-- New launch/xacro code: heavily commented in Chinese. No `*.rviz` in repo. Keep `GO2-L1-复现指南.md` in sync (paste full file contents, never "copy omitted lines").
+- New launch/xacro code: heavily commented in Chinese. Only `go2_l1*.rviz` are allowed in repo (bringup exception). Keep `GO2-L1-复现指南.md` in sync (paste full file contents, never "copy omitted lines").

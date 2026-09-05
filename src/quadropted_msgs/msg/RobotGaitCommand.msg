@@ -1,11 +1,11 @@
 # RobotGaitCommand.msg
-# ID робота
+# 机器人 ID
 uint16 robot_id
-# Тип походки
+# 步态类型
 uint16 gait_type
-# Высота корпуса
+# 机身高度
 float32 body_height
-# Высота шага
+# 步高
 float32 leg_height
 
 

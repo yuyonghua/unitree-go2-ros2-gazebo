@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Author: lnotspotl, abutalipovvv
 import numpy as np
-import tf_transformations  # Используем tf2 вместо tf
+import tf_transformations  # 使用 tf2 代替 tf
 from .StateCommand import State, Command, BehaviorState
 from .RestController import RestController
 from .TrotGaitController import TrotGaitController
@@ -34,7 +34,7 @@ class Robot:
             stance_time=0.55, swing_time=0.45, time_step=0.02
         )
 
-        self.standController = StandController(self.node, self.default_stance)  # Передаем node
+        self.standController = StandController(self.node, self.default_stance)  # 把 node 传给控制器
         self.restController = RestController(self.default_stance)
         self.currentController = self.restController
 
@@ -42,17 +42,14 @@ class Robot:
         self.state.foot_locations = self.default_stance
         self.command = Command(self.default_height)
 
-                # Установить режим TROT по умолчанию
+        # 将 TROT 模式设为默认
         self.command.trot_event = True
         self.command.rest_event = False
         self.command.crawl_event = False
         self.command.stand_event = False
 
-        # Переключиться на TROT
+        # 切换至 TROT
         self.change_controller()
-
-
-
         
         self.node.create_subscription(RobotModeCommand, 'robot_mode', self.mode_callback, 10)
         self.node.create_subscription(RobotVelocity, 'robot_velocity', self.velocity_callback, 10)
@@ -113,7 +110,7 @@ class Robot:
 
     def handle_behavior_command(self, request, response):
         command = request.command.lower()
-        self.node.get_logger().info(f"Получена команда поведения: {command}")
+        self.node.get_logger().info(f"收到行为指令: {command}")
 
         if command == 'sit':
             self.command.stand_event = True
@@ -125,7 +122,7 @@ class Robot:
             self.state.body_local_position[2] = -0.15
 
             response.success = True
-            response.message = "Робот сел."
+            response.message = "机器人坐了下来。"
         
         elif command == 'up':
             self.command.rest_event = True
@@ -137,7 +134,7 @@ class Robot:
             self.state.body_local_position[2] = 0.0
 
             response.success = True
-            response.message = "Робот встал."
+            response.message = "机器人站了起来。"
         
         elif command == 'walk':
             
@@ -150,11 +147,11 @@ class Robot:
             self.state.body_local_position[2] = 0.0
 
             response.success = True
-            response.message = "Робот начал ходить."
+            response.message = "机器人开始行走。"
         
         else:
             response.success = False
-            response.message = f"Неизвестная команда: {command}"
+            response.message = f"未知命令: {command}"
 
         return response
 
@@ -165,14 +162,14 @@ class Robot:
             self.currentController = self.restController
             self.currentController.pid_controller.reset()
             self.command.rest_event = False
-            self.node.get_logger().info("Переключено на REST контроллер")
+            self.node.get_logger().info("切换到 REST 控制器")
             
             #  TROT
             self.state.behavior_state = BehaviorState.TROT
             self.currentController = self.trotGaitController
             self.currentController.pid_controller.reset()
             self.state.ticks = 0
-            self.node.get_logger().info("Переключено на TROT контроллер")
+            self.node.get_logger().info("切换到 TROT 控制器")
             self.command.trot_event = False
 
         elif self.command.trot_event:
@@ -182,7 +179,7 @@ class Robot:
                 self.currentController.pid_controller.reset()
                 self.state.ticks = 0
             self.command.trot_event = False
-            self.node.get_logger().info("Переключено на TROT контроллер")
+            self.node.get_logger().info("切换到 TROT 控制器")
         
         elif self.command.crawl_event:
             if self.state.behavior_state == BehaviorState.REST:
@@ -191,14 +188,14 @@ class Robot:
                 self.currentController.first_cycle = True
                 self.state.ticks = 0
             self.command.crawl_event = False
-            self.node.get_logger().info("Переключено на CRAWL контроллер")
+            self.node.get_logger().info("切换到 CRAWL 控制器")
         
         elif self.command.stand_event:
             if self.state.behavior_state != BehaviorState.STAND:
                 self.state.behavior_state = BehaviorState.STAND
                 self.currentController = self.standController
                 self.state.body_local_position[2] = 0.005 
-                self.node.get_logger().info("Переключено на STAND контроллер")
+                self.node.get_logger().info("切换到 STAND 控制器")
             self.command.stand_event = False
         
         elif self.command.rest_event:
@@ -206,11 +203,11 @@ class Robot:
             self.currentController = self.restController
             self.currentController.pid_controller.reset()
             self.command.rest_event = False
-            self.node.get_logger().info("Переключено на REST контроллер")
+            self.node.get_logger().info("切换到 REST 控制器")
 
 
     def run(self):
-        # Возвращаем данные текущего контроллера
+        # 返回当前控制器的数据
         return self.currentController.run(self.state, self.command)
 
     @property

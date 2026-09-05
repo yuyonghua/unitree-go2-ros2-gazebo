@@ -21,7 +21,7 @@ class DogOdometry(Node):
     def __init__(self):
         super().__init__('dog_odometry')
 
-        # Параметры узла
+        # 节点参数
         self.declare_parameter('verbose', False)
         self.verbose = self.get_parameter('verbose').get_parameter_value().bool_value
         if self.verbose:
@@ -62,15 +62,15 @@ class DogOdometry(Node):
         if self.verbose:
             self.get_logger().info(f"Clock Topic: {clock_topic}")
 
-        # Инициализация переменных одометрии
+        # 里程计变量初始化
         self.x = 0.0
         self.y = 0.0
         self.theta = 0.0
         self.linear_velocity_x = 0.0
         self.linear_velocity_y = 0.0
         self.angular_velocity = 0.0
-        # Параметры фильтра скользящего среднего
-        self.filter_window_size = 14  # OKNOIOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO~~~~!!!!!!!!!!!!
+        # 滑动平均滤波器参数
+        self.filter_window_size = 14
         self.delta_x_queue = deque(maxlen=self.filter_window_size)
         self.delta_y_queue = deque(maxlen=self.filter_window_size)
         
@@ -79,17 +79,17 @@ class DogOdometry(Node):
         self.gazebo_clock = Time()
         self.encoder_pos = 0
 
-        # Коэффициент для коррекции скорости (может потребоваться калибровка)
+        # 速度修正系数 (可能需要标定)
         self.VELOCITY_COEFFICIENT = 11.66
 
-        # Размеры тела и ног (может потребоваться корректировка)
-        body_dimensions = [0.3762, 0.0935]  # [длина, ширина]
+        # 身体与腿部尺寸 (可能需要调整)
+        body_dimensions = [0.3762, 0.0935]  # [长度, 宽度]
         leg_dimensions = [0.0, 0.0955, 0.213, 0.213]  # [l1, l2, l3, l4]
 
-        # Инициализация Forward Kinematics
+        # 正运动学求解器初始化
         self.fk_solver = robot_FK.ForwardKinematics(body_dimensions, leg_dimensions)
 
-        # QoS профили
+        # QoS 配置
         qos_reliable = QoSProfile(
             reliability=ReliabilityPolicy.RELIABLE,
             durability=DurabilityPolicy.VOLATILE,
@@ -103,10 +103,10 @@ class DogOdometry(Node):
             history=HistoryPolicy.KEEP_LAST
         )
 
-        # Паблишер одометрии
+        # 里程计发布器
         self.odom_pub = self.create_publisher(Odometry, 'odom', qos_reliable)
 
-        # Подписки
+        # 话题订阅
         if self.has_imu_heading:
             self.imu_sub = self.create_subscription(
                 Imu,
@@ -131,16 +131,16 @@ class DogOdometry(Node):
 
         self.foot_contacts_sub = self.create_subscription(
             RobotFootContact,
-            'foot_contact',  # Убедитесь, что это правильный топик
+            'foot_contact',  # 确认这是正确的话题
             self.foot_contacts_callback,
             qos_best_effort
         )
 
-        # Трансформ-бродкастер
+        # TF 广播器
         if self.enable_odom_tf:
             self.tf_broadcaster = tf2_ros.TransformBroadcaster(self)
 
-        # Подписка на clock или encoder_value
+        # 订阅 clock 或 encoder_value
         if self.is_gazebo:
             clock_qos = QoSProfile(
                 reliability=ReliabilityPolicy.RELIABLE,
@@ -172,13 +172,13 @@ class DogOdometry(Node):
             if self.verbose:
                 self.get_logger().info("Subscribed to encoder_value topic with BEST_EFFORT QoS.")
 
-        # Паблишер маркеров для визуализации лап
+        # 足端可视化 Marker 发布器
         self.marker_pub = self.create_publisher(MarkerArray, 'foot_markers', qos_reliable)
 
-        # Инициализация предыдущих позиций лап
+        # 上一次足端位置初始化
         self.prev_foot_positions = [None, None, None, None]
 
-        # Таймер для обновления одометрии
+        # 里程计更新定时器
         timer_period = 1.0 / publish_rate
         self.timer = self.create_timer(timer_period, self.timer_callback)
 
@@ -190,13 +190,13 @@ class DogOdometry(Node):
 
         self.imu_angular_velocity = 0.0
 
-        # Переменные для контактов лап и суставов
+        # 足端触地与关节变量
         self.foot_contacts = [False, False, False, False]  # [FR, FL, RR, RL]
-        self.joint_positions = [0.0] * 12  # 3 угла на каждую ногу (4 ноги * 3 угла)
-        self.foot_positions = [(0.0, 0.0, 0.0)] * 4  # Позиции лап [FR, FL, RR, RL]
+        self.joint_positions = [0.0] * 12  # 每条腿 3 个关节角 (4 条腿 × 3 个关节)
+        self.foot_positions = [(0.0, 0.0, 0.0)] * 4  # 足端位置 [FR, FL, RR, RL]
 
     def velocity_callback(self, msg):
-        # Предполагается, что msg.cmd_vel.linear.x уже масштабирован корректно
+        # 假定 msg.cmd_vel.linear.x 已经过正确缩放
         self.linear_velocity_x = msg.cmd_vel.linear.x
         self.linear_velocity_y = msg.cmd_vel.linear.y
         if self.verbose:
@@ -206,7 +206,7 @@ class DogOdometry(Node):
             )
 
     def joint_states_callback(self, msg):
-        # Предполагается, что имена суставов в порядке FR_hip_joint, FR_thigh_joint, FR_calf_joint, ...
+        # 假定关节名顺序为 FR_hip_joint, FR_thigh_joint, FR_calf_joint, ...
         if len(msg.data) != 12:
             self.get_logger().error(f"Unexpected number of joint angles: {len(msg.data)}. Expected 12.")
             return
@@ -218,7 +218,7 @@ class DogOdometry(Node):
         if self.verbose:
             self.get_logger().info(f"Received foot_contacts message: {msg}")
 
-        # Проверка длины списка contacts
+        # 检查 contacts 列表长度
         if len(msg.contacts) != 4:
             self.get_logger().error(f"Unexpected number of contacts: {len(msg.contacts)}. Expected 4.")
             self.foot_contacts = [False, False, False, False]
@@ -233,7 +233,7 @@ class DogOdometry(Node):
         orientation_list = [orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w]
         (roll, pitch, yaw) = tf_transformations.euler_from_quaternion(orientation_list)
 
-        self.theta = yaw  # Устанавливаем theta только из IMU
+        self.theta = yaw  # theta 仅由 IMU 给出
         self.imu_angular_velocity = -msg.angular_velocity.z
 
         if self.verbose:
@@ -252,18 +252,18 @@ class DogOdometry(Node):
 
     def normalize_angle(self, angle):
         """
-        Нормализует угол до диапазона [-pi, pi].
-        :param angle: Угол в радианах.
-        :return: Нормализованный угол.
+        将角度归一化到 [-pi, pi] 范围。
+        :param angle: 输入角度（弧度）。
+        :return: 归一化后的角度。
         """
         return math.atan2(math.sin(angle), math.cos(angle))
 
     def calculate_foot_positions(self):
         """
-        Вычисляет позиции всех лап на основе текущих углов суставов.
+        根据当前关节角计算所有足端位置。
         """
-        # Список углов суставов: [FR_hip, FR_thigh, FR_calf, FL_hip, FL_thigh, FL_calf,
-        #                           RR_hip, RR_thigh, RR_calf, RL_hip, RL_thigh, RL_calf]
+        # 关节角列表: [FR_hip, FR_thigh, FR_calf, FL_hip, FL_thigh, FL_calf,
+        #              RR_hip, RR_thigh, RR_calf, RL_hip, RL_thigh, RL_calf]
         if len(self.joint_positions) != 12:
             self.get_logger().error(f"Incorrect number of joint positions: {len(self.joint_positions)}. Expected 12.")
             return
@@ -293,16 +293,16 @@ class DogOdometry(Node):
         delta_x_total, delta_y_total = 0.0, 0.0
         contact_count = 0
 
-        for i in range(4):  # Для каждой лапы
-            if self.foot_contacts[i]:  # Если лапа на земле
-                # Используем позицию лапы относительно base_link
+        for i in range(4):  # 遍历每条腿
+            if self.foot_contacts[i]:  # 足端触地
+                # 足端相对 base_link 的位置
                 foot_rel_x, foot_rel_y = self.foot_positions[i][0], self.foot_positions[i][1]
 
                 if self.prev_foot_positions[i] is not None:
                     delta_x = foot_rel_x - self.prev_foot_positions[i][0]
                     delta_y = foot_rel_y - self.prev_foot_positions[i][1]
 
-                    # Смещение робота является противоположным изменению позиций лап
+                    # 机器人位移与足端位置变化方向相反
                     delta_x_total += delta_x
                     delta_y_total += -delta_y
                     contact_count += 0.65
@@ -311,43 +311,43 @@ class DogOdometry(Node):
                         leg = ['FR', 'FL', 'RR', 'RL'][i]
                         self.get_logger().info(f"{leg} foot movement: Δx={delta_x:.6f}, Δy={delta_y:.6f}")
                 else:
-                    # Если это первая запись, просто сохраните текущие позиции лап
+                    # 首次触地，只保存当前足端位置
                     if self.verbose:
                         leg = ['FR', 'FL', 'RR', 'RL'][i]
                         self.get_logger().info(f"{leg} foot first contact position: x={foot_rel_x:.6f}, y={foot_rel_y:.6f}")
 
-                # Обновляем предыдущие позиции лап
+                # 更新上一次足端位置
                 self.prev_foot_positions[i] = (foot_rel_x, foot_rel_y)
 
         if contact_count > 0:
-            # Усредняем смещения
+            # 对位移取平均
             delta_x = delta_x_total / contact_count
             delta_y = delta_y_total / contact_count
 
-            # Добавляем смещения в очереди
+            # 位移送入滑动平均队列
             self.delta_x_queue.append(delta_x)
             self.delta_y_queue.append(delta_y)
 
-            # Вычисляем среднее значение смещений
+            # 计算队列均值
             avg_delta_x = sum(self.delta_x_queue) / len(self.delta_x_queue)
             avg_delta_y = sum(self.delta_y_queue) / len(self.delta_y_queue)
 
-            # Обновляем позицию робота с учётом ориентации
+            # 结合朝向更新机器人位置
             self.x += (avg_delta_x * math.cos(self.theta) - avg_delta_y * math.sin(self.theta))
             self.y += (avg_delta_x * math.sin(self.theta) + avg_delta_y * math.cos(self.theta))
 
             if self.verbose:
                 self.get_logger().info(f"Odometry updated based on foot contacts: Δx={avg_delta_x:.6f}, Δy={avg_delta_y:.6f}")
         else:
-            # Если ни одна лапа не на земле, обновляем одометрию на основе команд скорости
+            # 没有足端触地时，根据速度指令更新里程计
             delta_x = self.linear_velocity_x * dt
             delta_y = self.linear_velocity_y * dt
 
-            # Добавляем смещения в очереди
+            # 位移送入滑动平均队列
             self.delta_x_queue.append(delta_x)
             self.delta_y_queue.append(delta_y)
 
-            # Вычисляем среднее значение смещений
+            # 计算队列均值
             avg_delta_x = sum(self.delta_x_queue) / len(self.delta_x_queue)
             avg_delta_y = sum(self.delta_y_queue) / len(self.delta_y_queue)
 
@@ -357,7 +357,7 @@ class DogOdometry(Node):
             if self.verbose:
                 self.get_logger().info(f"No feet in contact. Odometry updated based on velocity commands: Δx={avg_delta_x:.6f}, Δy={avg_delta_y:.6f}")
 
-        # Не обновляем theta здесь, оно устанавливается только из IMU
+        # theta 不在这里更新，它仅由 IMU 给出
         self.last_position_time = current_time
 
     def publish_odometry(self):
@@ -381,10 +381,10 @@ class DogOdometry(Node):
             w=quaternion[3]
         )
 
-        # Обновление twist.twist на основе команд скорости
+        # 根据速度指令更新 twist.twist
         odom.twist.twist.linear.x = self.linear_velocity_x
         odom.twist.twist.linear.y = self.linear_velocity_y
-        odom.twist.twist.angular.z = self.imu_angular_velocity  # Устанавливаем угловую скорость на основе IMU
+        odom.twist.twist.angular.z = self.imu_angular_velocity  # 角速度取自 IMU
 
         self.odom_pub.publish(odom)
 
@@ -437,16 +437,16 @@ class DogOdometry(Node):
         self.marker_pub.publish(marker_array)
 
     def timer_callback(self):
-        # Расчет позиций лап
+        # 计算足端位置
         self.calculate_foot_positions()
 
-        # Обновление одометрии на основе позиций лап и контактов
+        # 根据足端位置与触地状态更新里程计
         self.update_odometry()
 
-        # Публикация одометрии
+        # 发布里程计
         self.publish_odometry()
 
-        # Публикация маркеров
+        # 发布 Marker
         self.publish_markers()
 
         if self.verbose:

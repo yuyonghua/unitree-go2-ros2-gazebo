@@ -24,24 +24,24 @@ class RobotVelocityHandler(Node):
         if self.verbose:
             self.get_logger().info("Node started: RobotVelocityHandler")
 
-        # Переменная для секундомера
+        # 秒表变量
         self.motion_start_time = None
 
     def robot_velocity_callback(self, msg: Twist):
-        # Определяем, есть ли ненулевая скорость
+        # 确定是否存在非零速度
         has_velocity = (msg.linear.x != 0 or msg.linear.y != 0 or 
                         msg.linear.z != 0 or 
                         msg.angular.x != 0 or msg.angular.y != 0 or msg.angular.z != 0)
 
         current_time = self.get_clock().now()
 
-        # Если есть ненулевая скорость и секундомер не запущен — запускаем его
+        # 如果速度不为零且秒表未运行，则启动秒表。
         if has_velocity and self.motion_start_time is None:
             self.motion_start_time = current_time
             if self.verbose:
                 self.get_logger().info(f"Motion started at time: {current_time.to_msg()}")
 
-        # Если скорости нет (робот остановился) и секундомер был запущен — останавливаем его
+        # 如果没有速度（机器人已停止）且秒表正在运行，则停止秒表。
         if not has_velocity and self.motion_start_time is not None:
             elapsed = current_time - self.motion_start_time
             if self.verbose:
@@ -74,12 +74,12 @@ class RobotVelocityHandler(Node):
             )
         
     def multiply_and_limit(self, value, scale_factor, min_limit, max_limit):
-        # Обработка положительных и отрицательных значений отдельно
+        # 分别处理正值和负值
         if value > 0:
             adjusted_value = value * 0.035
             scaled_value = scale_factor * (1 - math.exp(-100 * adjusted_value))
         else:
-            # Для отрицательных значений значение умножаем на -0.035
+            # 对于负值，将该值乘以 -0.035
             adjusted_value = (-value) * 0.035
             scaled_value = -scale_factor * (1 - math.exp(-100 * adjusted_value))
         

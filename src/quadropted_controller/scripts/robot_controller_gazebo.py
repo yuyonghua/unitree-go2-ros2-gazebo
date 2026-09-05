@@ -16,13 +16,13 @@ class RobotControllerNode(Node):
     def __init__(self):
         super().__init__("Robot_Controller")
 
-        # Объявляем параметры
+        # 声明参数
         self.declare_parameter('verbose', False)
         self.verbose = self.get_parameter('verbose').get_parameter_value().bool_value
         if self.verbose:
             self.get_logger().info(f"Verbose mode: {self.verbose}")
 
-        # Геометрия робота
+        # 机器人几何尺寸
         body = [0.3762, 0.0935]
         legs = [0.0, 0.0955, 0.213, 0.213]
         

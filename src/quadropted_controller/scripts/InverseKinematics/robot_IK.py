@@ -7,11 +7,11 @@ from RoboticsUtilities.Transformations import homog_transform_inverse, homog_tra
 
 class InverseKinematics:
     def __init__(self, bodyDimensions, legDimensions):
-        # Размеры тела
+        # 身体尺寸
         self.bodyLength = bodyDimensions[0]
         self.bodyWidth = bodyDimensions[1]
 
-        # Размеры ног
+        # 脚部尺寸
         self.l1 = legDimensions[0]
         self.l2 = legDimensions[1]
         self.l3 = legDimensions[2]
@@ -19,30 +19,30 @@ class InverseKinematics:
 
     def get_local_positions(self, leg_positions, dx, dy, dz, roll, pitch, yaw):
         """
-        Вычисление локальных позиций точек опор в системе координат плеч.
+        肩部坐标系中支撑点局部位置的计算。
         """
         leg_positions = (np.block([[leg_positions], [np.array([1, 1, 1, 1])]])).T
 
-        # Матрица преобразования, base_link_world => base_link
+        # 变换矩阵，base_link_world => base_link
         T_blwbl = homog_transform(dx, dy, dz, roll, pitch, yaw)
 
-        # Матрица преобразования, base_link_world => FR1
+        # 变换矩阵，base_link_world => FR1
         T_blwFR1 = np.dot(T_blwbl, homog_transform(+0.5 * self.bodyLength,
                           -0.5 * self.bodyWidth, 0, pi/2, -pi/2, 0))
 
-        # Матрица преобразования, base_link_world => FL1
+        # 变换矩阵，base_link_world => FL1
         T_blwFL1 = np.dot(T_blwbl, homog_transform(+0.5 * self.bodyLength,
                           +0.5 * self.bodyWidth, 0, pi/2, -pi/2, 0))
 
-        # Матрица преобразования, base_link_world => RR1
+        # 变换矩阵，base_link_world => RR1
         T_blwRR1 = np.dot(T_blwbl, homog_transform(-0.5 * self.bodyLength,
                           -0.5 * self.bodyWidth, 0, pi/2, -pi/2, 0))
 
-        # Матрица преобразования, base_link_world => RL1
+        # 变换矩阵，base_link_world => RL1
         T_blwRL1 = np.dot(T_blwbl, homog_transform(-0.5 * self.bodyLength,
                           +0.5 * self.bodyWidth, 0, pi/2, -pi/2, 0))
 
-        # Локальные координаты
+        # 局部坐标
         pos_FR = np.dot(homog_transform_inverse(T_blwFR1), leg_positions[0])
         pos_FL = np.dot(homog_transform_inverse(T_blwFL1), leg_positions[1])
         pos_RR = np.dot(homog_transform_inverse(T_blwRR1), leg_positions[2])
@@ -52,7 +52,7 @@ class InverseKinematics:
 
     def inverse_kinematics(self, leg_positions, dx, dy, dz, roll, pitch, yaw):
         """
-        Вычисление обратной кинематики для всех ног.
+        计算所有腿部的逆运动学。
         """
         positions = self.get_local_positions(leg_positions, dx, dy, dz, roll, pitch, yaw)
         angles = []
@@ -66,6 +66,7 @@ class InverseKinematics:
             G = F - self.l1
             H = sqrt(G**2 + z**2)
 
+            # 计算第一个关节的角度
             theta1 = -atan2(y, x) - atan2(F, self.l2 * (-1)**i)
  
             D = (H**2 - self.l3**2 - self.l4**2) / (2 * self.l3 * self.l4)
@@ -79,5 +80,5 @@ class InverseKinematics:
             angles.append(theta3)
             angles.append(theta4)
 
-        # Возвращаем углы суставов в радианах для FR, FL, RR, RL
+        # 返回 FR、FL、RR、RL 的关节角度（弧度）
         return angles

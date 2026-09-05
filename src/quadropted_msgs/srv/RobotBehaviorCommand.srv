@@ -1,7 +1,7 @@
 # RobotBehaviorCommand.srv
-# Команда: [sit, up, walk]
+# 行为指令: [sit, up, walk]
 string command
 ---
-# Результат выполнения
+# 执行结果
 bool success
 string message
