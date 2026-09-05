@@ -134,7 +134,10 @@ def _robot_nodes(context: LaunchContext, *args, **kwargs):
                              'has_imu_heading': True, 'is_gazebo': True,
                              'imu_topic': f'/{ns}/imu', 'base_frame_id': 'base_link',
                              'odom_frame_id': 'odom', 'clock_topic': '/clock',
-                             'enable_odom_tf': True}],
+                             # 必须 False：odom→base_link 由 EKF 发（publish_tf），这里再发就
+                             # 一帧两写，RViz 里 robot model 闪烁。原项目两边都是 True，
+                             # 是上游遗留问题，实测关掉后 EKF 照常输出 odometry/filtered。
+                             'enable_odom_tf': False}],
                 remappings=remappings)
 
     # --- 7. EKF：融合 odom + IMU，输出 odometry/filtered（SLAM/Nav2 吃这个）---

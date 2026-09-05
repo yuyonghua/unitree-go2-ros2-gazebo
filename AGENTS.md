@@ -57,6 +57,9 @@ ros2 topic hz /robot1/scan   # ~10Hz, angle_min≈1.39 angle_max≈4.88 (front ~
   service calls (see guide §5.4).
 - TF remaps `(/tf→tf, /tf_static→tf_static, /scan→scan, /odom→odometry/filtered)` required on rsp/spawners/controller/odom/ekf;
   a missing one = split TF tree or SLAM with no scan. Base frame is `base_link` (EKF/SLAM/Nav2 agree); never use `velodyne` as RViz Fixed Frame.
+- Each TF edge must have exactly one publisher: `odom→base_link` only from EKF (`enable_odom_tf:=false`
+  on the odom node — upstream has both on, causing RViz flicker); `map→odom` from EITHER slam_toolbox
+  OR amcl, never both (don't run `slam.launch.py` together with `nav2.launch.py`).
 - L1 ranges: Gazebo `max 131m` penetrates walls — clamp to 10m in SLAM/Nav2 params. `inflation_radius ≥ 0.5` (rear blind).
 - `leg.xacro` upstream typo (`fixed">0`) is tolerated — leave it. No `dae/` dir (duplicate of `meshes/`);
   `calf_mirror.dae`/`foot.dae` unreferenced; `Vlp16.dae` only needed when external lidar on.

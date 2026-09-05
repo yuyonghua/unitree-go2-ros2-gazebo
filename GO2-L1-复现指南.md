@@ -723,7 +723,8 @@ def _robot_nodes(context: LaunchContext, *args, **kwargs):
                              'has_imu_heading': True, 'is_gazebo': True,
                              'imu_topic': f'/{ns}/imu', 'base_frame_id': 'base_link',
                              'odom_frame_id': 'odom', 'clock_topic': '/clock',
-                             'enable_odom_tf': True}],
+                             # 必须 False：odom→base_link 由 EKF 发，双发 RViz 里模型闪烁
+                             'enable_odom_tf': False}],
                 remappings=remappings)
     ekf = Node(package='robot_localization', executable='ekf_node',
                name='ekf_filter_node', namespace=ns, output='screen',
@@ -939,10 +940,10 @@ mkdir -p go2_nav/{launch,param,maps,rviz}
 
 ```bash
 cp ~/git/ros2-learning/ROS2-Gazebo-GO2/src/navigation2/param/go2_nav2.yaml ~/go2_l1_ws/src/go2_nav/param/nav2_l1.yaml
-sed -i 's#scan_topic: velodyne#scan_topic: scan#; s#topic: /velodyne#topic: /scan#g' ~/go2_l1_ws/src/go2_nav/param/nav2_l1.yaml
+sed -i 's#scan_topic: velodyne#scan_topic: scan#; s#topic: /velodyne#topic: scan#g' ~/go2_l1_ws/src/go2_nav/param/nav2_l1.yaml
 ```
 
-改后核对：`amcl.scan_topic: scan`；`local_costmap.voxel_layer.scan.topic: /scan`；`global_costmap.obstacle_layer.scan.topic: /scan`。另建议 `amcl.laser_max_range: 100.0 → 10.0`（与建图一致），其余 `robot_radius 0.22 / inflation_radius 0.55 / FollowPath max_vel_x 0.26 / max_vel_theta 1.0` 保留（狗步态限制）。
+改后核对：`amcl.scan_topic: scan`；`local_costmap.voxel_layer.scan.topic: scan`；`global_costmap.obstacle_layer.scan.topic: scan`。注意三处都必须是**相对名** `scan`（不能是 `/scan`）：Nav2 跑在 `robot1` 命名空间下，相对名才解析到 `/robot1/scan`；写成绝对 `/scan` 会订阅到不存在的全局话题，costmap 全空、RViz 里看不到粉红膨胀圈（2026-09-06 实测）。另建议 `amcl.laser_max_range: 100.0 → 10.0`（与建图一致），其余 `robot_radius 0.22 / inflation_radius 0.55 / FollowPath max_vel_x 0.26 / max_vel_theta 1.0` 保留（狗步态限制）。
 
 ### 8.2 `launch/nav2.launch.py` 全文（对照原 `navigation2/launch/go2_navigation2.launch.py:68-83`）
 
