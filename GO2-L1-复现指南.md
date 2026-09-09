@@ -809,6 +809,10 @@ def generate_launch_description():
 
 用法：`ros2 launch go2_gazebo_bringup launch.py`（默认 L1）；`ros2 launch go2_gazebo_bringup launch.py use_external_lidar:=true`（加挂外置雷达）；`ros2 launch go2_gazebo_bringup launch.py rviz:=true`（顺手开 RViz，默认不开，配置文件按 use_external_lidar 自动选 `rviz/go2_l1.rviz` 或 `rviz/go2_l1_external.rviz`）。
 
+出生位姿：`x/y/z/yaw` 四个参数（默认 `0.0/0.0/0.8/0.0`），外层透传给 `l1.launch.py` 的 spawn。
+`z` 不要写死：不同 world 地面高度不一样，给小了狗卡进地里；狗是掉下去再站起来的，
+**宁高勿低**——0.8 三个 world 通用，rmuc 场地表面偏高可给到 1.0。
+
 ### 5.4 验收
 
 ```bash

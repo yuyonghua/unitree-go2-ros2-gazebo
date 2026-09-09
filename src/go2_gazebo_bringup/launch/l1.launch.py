@@ -53,10 +53,15 @@ def _robot_nodes(context: LaunchContext, *args, **kwargs):
     # spawn 是 ros_gz_sim 包里的 create，可在 Gazebo 里创建模型，等价于 gz sim -r -m <model>.\
     # 这个 create 节点本身并不负责发布模型话题，也不是给 RViz 接收数据的；
     # 它的角色是一个“搬运工”——负责从 ROS 2 的话题中读取机器人模型，并调用 Gazebo 的内部服务在仿真世界里把机器人“生成（Spawn）”出来。
+    # 出生位姿由 x/y/z/yaw 四个 launch 参数控制（不要写死：不同 world 地面高度不一样，
+    # z 给小了狗会卡进地里。狗是掉下去再站起来的，z 宁高勿低，默认 0.8 各 world 通用）。
     spawn = Node(package='ros_gz_sim', executable='create', namespace=ns, output='screen',
                  arguments=['-topic', f'/{ns}/robot_description',
                             '-name', f'{ns}_my_bot', '-allow_renaming', 'true',
-                            '-x', '0.0', '-y', '0.0', '-z', '0.5'])
+                            '-x', LaunchConfiguration('x'),
+                            '-y', LaunchConfiguration('y'),
+                            '-z', LaunchConfiguration('z'),
+                            '-Y', LaunchConfiguration('yaw')])
 
     # --- 3. 桥接：Gazebo 话题 → ROS 2 话题。外置雷达开启时才追加它的三个话题，
     # 未开启时 Gazebo 侧根本没有这些话题，加了反而报错 ---
@@ -172,5 +177,9 @@ def generate_launch_description():
                               description='是否加载外置 360° 激光雷达（默认 false，只用内置 L1）'),
         DeclareLaunchArgument('rviz', default_value='false',
                               description='是否启动 RViz（默认 false；为 true 时按 use_external_lidar 自动选配置文件）'),
+        DeclareLaunchArgument('x', default_value='0.0', description='出生点 x（米）'),
+        DeclareLaunchArgument('y', default_value='0.0', description='出生点 y（米）'),
+        DeclareLaunchArgument('z', default_value='0.8', description='出生点 z（米），宁高勿低'),
+        DeclareLaunchArgument('yaw', default_value='0.0', description='出生朝向 yaw（弧度）'),
         OpaqueFunction(function=_robot_nodes),
     ])
